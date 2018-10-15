@@ -19,7 +19,7 @@ var sutAddr *net.TCPAddr
 var logFile string
 var logLevel = countlog.LevelDebug
 var logFormat string
-var outboundBypassPort int
+var outboundBypassPorts = make(map[int]bool, 10)
 var gcGlobalStatusTimeout = 5 * time.Second
 
 func init() {
@@ -42,7 +42,7 @@ func init() {
 		"logFile", logFile,
 		"logFormat", logFormat,
 		"inboundReadTimeout", inboundReadTimeout,
-		"outboundBypassPort", outboundBypassPort,
+		"outboundBypassPorts", outboundBypassPorts,
 		"isReplaying", IsReplaying(),
 		"isRecording", IsRecording(),
 		"isTracing", IsTracing())
@@ -117,8 +117,10 @@ func initOutboundBypassPort() {
 	if portStr == "" {
 		return
 	}
-	if portInt, err := strconv.Atoi(portStr); err == nil {
-		outboundBypassPort = portInt
+	for _, port := range strings.Split(portStr, ",") {
+		if portInt, err := strconv.Atoi(port); err == nil{
+			outboundBypassPorts[portInt] = true
+		}
 	}
 }
 
@@ -171,8 +173,11 @@ func LogFormat() string {
 	return logFormat
 }
 
-func OutboundBypassPort() int {
-	return outboundBypassPort
+func IsOutboundBypassPort(portInt int) bool {
+	if _, ok := outboundBypassPorts[portInt]; ok {
+		return true
+	}
+	return false
 }
 
 func GcGlobalStatusTimeout() time.Duration {
