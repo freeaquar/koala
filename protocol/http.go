@@ -1,4 +1,4 @@
-package outbound
+package protocol
 
 import (
 	"bytes"
@@ -31,7 +31,7 @@ func NewHTTPRevealer() *HTTPRevealer {
  * contain `HTTP`
  * start by HTTP method
  */
-func (this *HTTPRevealer) Inspect(request []byte) (ok bool) {
+func (this HTTPRevealer) Inspect(request []byte) (ok bool) {
 
 	if !bytes.Contains(request, []byte("HTTP/")) {
 		return false
@@ -48,7 +48,7 @@ func (this *HTTPRevealer) Inspect(request []byte) (ok bool) {
 /*
  * store uri as must match segment
  */
-func (this *HTTPRevealer) Parse(request []byte) (revealData RevealData, err error) {
+func (this HTTPRevealer) Parse(request []byte) (revealData RevealData, err error) {
 	revealData.Handler = this
 	revealData.Must = this.revealUri(request)
 	if len(revealData.Must) <= 0 {
@@ -57,14 +57,14 @@ func (this *HTTPRevealer) Parse(request []byte) (revealData RevealData, err erro
 	return revealData, err
 }
 
-func (this *HTTPRevealer) PreMatch(revealData1, revealData2 RevealData) (ok bool) {
+func (this HTTPRevealer) PreMatch(revealData1, revealData2 RevealData) (ok bool) {
 	if 0 == bytes.Compare(revealData1.Must, revealData2.Must) {
 		return true
 	}
 	return false
 }
 
-func (this *HTTPRevealer) revealUri(request []byte) (uri []byte) {
+func (this HTTPRevealer) revealUri(request []byte) (uri []byte) {
 	data := bytes.Split(request, []byte("\r\n\r\n"))
 	headerLines := data[0]
 	data = bytes.SplitN(headerLines, []byte("\r\n"), 2)
@@ -74,7 +74,7 @@ func (this *HTTPRevealer) revealUri(request []byte) (uri []byte) {
 	return uri
 }
 
-func (this *HTTPRevealer) revealFirstLine(firstLine []byte) (
+func (this HTTPRevealer) revealFirstLine(firstLine []byte) (
 	method, uri, version []byte, args map[string][]string) {
 
 	data := bytes.Fields(firstLine)

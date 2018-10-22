@@ -24,22 +24,31 @@ func (replayingSession *ReplayingSession) MatchOutboundTalk(
 
 	unit := 16
 	chunks := cutToChunks(request, unit)
+
+	outboundsRevealData := replayingSession.revealSessions()
+	requestRevealData := replayingSession.revealOneSession(request)
 	reqCandidates := replayingSession.loadKeys()
 	outboundsLen := len(replayingSession.CallOutbounds)
+
 	scores := make([]int, outboundsLen)
 	reqExpect100 := bytes.Contains(request, expect100)
+
 	for i, callOutbound := range replayingSession.CallOutbounds {
 		if reqExpect100 != bytes.Contains(callOutbound.Request, expect100) {
+			scores[i] = math.MinInt64
+		}
+		if !outboundsRevealData[i].Handler.PreMatch(requestRevealData, outboundsRevealData[i]) {
 			scores[i] = math.MinInt64
 		}
 	}
 
 	beginMatchIndex := getBeginMatchIndex(replayingSession.SessionId, connLastMatchedIndex)
 	endMatchIndex := outboundsLen - 1
-	maxScoreIndex, mark := matchTalk(ctx, chunks, reqCandidates, beginMatchIndex, endMatchIndex, connLastMatchedIndex, scores)
+
+	maxScoreIndex, mark := replayingSession.matchTalk(ctx, chunks, reqCandidates, beginMatchIndex, endMatchIndex, connLastMatchedIndex, scores)
 	if maxScoreIndex == -1 && beginMatchIndex > 0 {
 		// try from 0 to beginIndex - 1
-		maxScoreIndex, mark = matchTalk(ctx, chunks, reqCandidates, 0, beginMatchIndex-1, connLastMatchedIndex, scores)
+		maxScoreIndex, mark = replayingSession.matchTalk(ctx, chunks, reqCandidates, 0, beginMatchIndex-1, connLastMatchedIndex, scores)
 	}
 	if maxScoreIndex == -1 {
 		return -1, 0, nil
@@ -131,7 +140,7 @@ func getBeginMatchIndex(sessionId string, connLastMatchedIndex int) int {
 	return beginIndex + 1
 }
 
-func matchTalk(ctx context.Context, reqChunks [][]byte, reqCandidates [][]byte, beginIndex int, endIndex int,
+func (replayingSession *ReplayingSession) matchTalk(ctx context.Context, reqChunks [][]byte, reqCandidates [][]byte, beginIndex int, endIndex int,
 	connLastMatchedIndex int, scores []int) (int, float64) {
 	maxScore := 0
 	maxScoreIndex := -1
@@ -170,7 +179,7 @@ func matchTalk(ctx context.Context, reqChunks [][]byte, reqCandidates [][]byte, 
 	countlog.Trace("event!replaying.talks_scored",
 		"ctx", ctx,
 		"connLastMatchedIndex", connLastMatchedIndex,
-		"lastMaxScoreIndex", lastMatchedIndex,
+		//"lastMaxScoreIndex", lastMatchedIndex,
 		"beginMatchIndex", beginIndex,
 		"endMatchIndex", endIndex,
 		"maxScoreIndex", maxScoreIndex,

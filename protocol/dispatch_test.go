@@ -1,10 +1,10 @@
-package outbound
+package protocol
 
 import (
-	"testing"
-	"github.com/stretchr/testify/require"
-	"fmt"
 	"encoding/json"
+	"fmt"
+	"github.com/stretchr/testify/require"
+	"testing"
 )
 
 var request = `POST /gulfstream/driver/v2/driver/dFinishOrder HTTP/1.0
@@ -64,7 +64,7 @@ func Test_reveal(t *testing.T) {
 }
 
 func Test_match(t *testing.T) {
-	should :=require.New(t)
+	should := require.New(t)
 	request1 := "POST /gulfstream/driver/v2/driver/dFinishOrder?a=1&b=9#x0 HTTP/1.0\r\nhost: api.udache.com\r\n" +
 		"x-forwarded-for: 112.17.236.196, 112.17.236.196\r\n\r\n" +
 		"a3_token=P9yQI7nN9WGXu1SsYxXYoR%2FXnjhOiUndnIMoySDpzU%2Bn9CsHpQ3yfvBcv7n6gVNtVVM%2FbQz0oSA25MVoU3VTEQlredhJ7rIsoM60sCCiz%2FsZYsstua1D4O1GVfy2cNZbFhuqbKZKIm3QB98Msbnk8OquWy1LEYQisheTysiHr2z4%2BSnY6WcDSffGdC9RtQTD&datatype=2&dest_lat=29.345328354702122&new_price_conf=1&ticket=OJqjvzCXglMUS-Fzy_HgW1RbTSPMUdneGrIRN3IMndAkzDmuwzAMANG7TE0YJGVKFtvf_ztkcZZGARKkMnL3wEj9BrMxlKRMOinCMNKE4aSrqgqjkNaie1hrtcx155ncKUj-_hEOJAhHMhaN2b0szWqrKpxJN2ElN16P9_O0kvoRLqRFacW1lS5cSSw8lh5ReyDcfs_7nn8DAAD__w%3D%3D&maptype=soso&appversioncode=321&highway_fee=%E8%AF%B7%E8%BE%93%E5%85%A5%E9%87%91%E9%A2%9D&imei=863670033562410&appversion=5.1.24&lang=zh-CN&park_fee=%E8%AF%B7%E8%BE%93%E5%85%A5%E9%87%91%E9%A2%9D&platform_type=2&bridge_fee=%E8%AF%B7%E8%BE%93%E5%85%A5%E9%87%91%E9%A2%9D&channel=2010000001&is_offline_paid=0&dest_lng=120.10726630826768&product_id=260&utc_offset=480&dest_timestamp=1539762330&terminal_id=1&deviceid=7852c53bb1047946641cdbdc23646f0f&lng=120.10726630826768&os=6.0.1&oid=TWpnNE5UZzBOekEyT0RBd09ETTFOek14&plutus_data=pbv3H4sIAAAAAAAA%2F%2ByUPWgUURDHd8yqkWuMNjHVuZUfm2PmvZ2d3RVxAzZaaRMionE%2F4xUmeqSIBOGUFLE8UvhVKHZJE7ELdoqIYPADhFSCohZ2goWlXMhbkmgR%2B8wW%2B2P%2B8%2BY%2FPIbXe%2Bf9g08791oDt3b0rnyfX2y3Z2BfjVhxEDL7IfffnXv06vNRp0baZz8IhDQdstAOrNg6PSQo6KWiSuSCk%2B4hhamXljrLM8w8ivIkFUpREs48VqUq0yLjouQsJJ9SSc8Mj1iXvs7svgxXe6asNsBtsNaiU9F92K%2BQgkHCQZI6caRVpHm%2B0p9AuQTLb7pxLH4O1utK%2BQDWCthfwEaW8AfUuj9Xa5RA%2FayKfsPc0rcX79q207F717Dv17P8RM%2Fiy%2FjAakl9Nj5oModNhkyD0MCQgVMGzho4ZyAx0DRwzcB1Azer2f51HfcqegyzMO2kxVhzfHSyeaVwImIdik8eousUU0k2ObqqVgL7ZIRiPDdppZW4TqvIJlp50XKi88wYNFCxFiJRniiXOVQNZM0ivs%2BkxMX134UbCzD9n6Mwb2UUz%2BMGrg%2Ff1X%2B7P4XhLbrjBlPc4IUubm58ZHsntndiU2M1sCcYO9mcGDke9z1cXnj7cdfFuL%2FTfUjr8CcAAP%2F%2FOetnUVEFAAA%3D&biz_type=2&lat=29.345328354702122&location_cityid=86&model=OPPO+R9s"
@@ -77,7 +77,7 @@ func Test_match(t *testing.T) {
 	should.True(true)
 }
 
-func parse(hello interface{}) (result string){
+func parse(hello interface{}) (result string) {
 	tmp, _ := json.Marshal(hello)
 	return string(tmp)
 }

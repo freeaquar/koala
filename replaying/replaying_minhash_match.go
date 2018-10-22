@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/v2pro/koala/outbound"
+	"github.com/v2pro/koala/protocol"
 	"sync"
 	"time"
 
@@ -18,7 +18,7 @@ import (
 var globalMinHash = map[string][]*minhash.MinWise{}
 var globalMinHashMutex = &sync.Mutex{}
 
-var globalRevealData = map[string][]outbound.RevealData{}
+var globalRevealData = map[string][]protocol.RevealData{}
 var globalRevealDataMutex = &sync.Mutex{}
 
 func (replayingSession *ReplayingSession) MinHashMatchOutboundTalk(
@@ -75,7 +75,7 @@ func (replayingSession *ReplayingSession) MinHashMatchOutboundTalk(
 	return maxScoreIndex, scores[maxScoreIndex], replayingSession.CallOutbounds[maxScoreIndex]
 }
 
-func (replayingSession *ReplayingSession) revealSessions() []outbound.RevealData {
+func (replayingSession *ReplayingSession) revealSessions() []protocol.RevealData {
 	globalRevealDataMutex.Lock()
 	defer globalRevealDataMutex.Unlock()
 
@@ -94,19 +94,19 @@ func (replayingSession *ReplayingSession) revealSessions() []outbound.RevealData
 	return outboundsRevealData
 }
 
-func (replayingSession *ReplayingSession) revealOneSession(request []byte) (revealData outbound.RevealData) {
-	for _, protocol := range outbound.Revealers {
-		if !protocol.Inspect(request) {
+func (replayingSession *ReplayingSession) revealOneSession(request []byte) (revealData protocol.RevealData) {
+	for _, p := range protocol.RevealHandler {
+		if !p.Inspect(request) {
 			continue
 		}
-		revealData, err := protocol.Parse(request)
+		revealData, err := p.Parse(request)
 		if err != nil {
 			continue
 		}
 		return revealData
 	}
-
-	return outbound.RevealData{}
+	revealData.Handler = protocol.UnknownRevealer{}
+	return revealData
 }
 
 //func hashMatchTalk(ctx context.Context, requestHash *minhash.MinWise, outboundsHash *minhash.MinWise,
