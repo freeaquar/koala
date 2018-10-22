@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/v2pro/koala/outbound"
 	"sync"
 	"time"
 
@@ -17,17 +18,27 @@ import (
 var globalMinHash = map[string][]*minhash.MinWise{}
 var globalMinHashMutex = &sync.Mutex{}
 
+var globalRevealData = map[string][]outbound.RevealData{}
+var globalRevealDataMutex = &sync.Mutex{}
+
 func (replayingSession *ReplayingSession) MinHashMatchOutboundTalk(
 	ctx context.Context, connLastMatchedIndex int, request []byte) (int, float64, *recording.CallOutbound) {
 	maxScoreIndex := -1
 	maxScore := float64(0)
 	scores := make([]float64, len(replayingSession.CallOutbounds))
+
+	outboundsRevealData := replayingSession.revealSessions()
+	requestRevealData := replayingSession.revealOneSession(request)
+
 	outboundsHash := getReplayingSessionMinHash(replayingSession)
 	requestHash := NewMinHash(request)
 
 	beginMatchIndex := getBeginMatchIndex(replayingSession.SessionId, connLastMatchedIndex)
 	for i := range replayingSession.CallOutbounds {
 		if i < beginMatchIndex {
+			continue
+		}
+		if !outboundsRevealData[i].Handler.PreMatch(requestRevealData, outboundsRevealData[i]) {
 			continue
 		}
 		scores[i] = outboundsHash[i].Similarity(requestHash)
@@ -50,7 +61,9 @@ func (replayingSession *ReplayingSession) MinHashMatchOutboundTalk(
 		setGlobalLastMatchedIndex(replayingSession.SessionId, maxScoreIndex)
 	}
 
-	countlog.Trace("event!replaying.min_hash_talks_scored", "ctx", ctx, "connLastMatchedIndex", connLastMatchedIndex,
+	countlog.Trace("event!replaying.min_hash_talks_scored",
+		"ctx", ctx,
+		"connLastMatchedIndex", connLastMatchedIndex,
 		"beginMatchIndex", beginMatchIndex, "maxScoreIndex", maxScoreIndex,
 		"maxScore", maxScore,
 		"scores", func() interface{} {
@@ -60,6 +73,40 @@ func (replayingSession *ReplayingSession) MinHashMatchOutboundTalk(
 		return -1, 0, nil
 	}
 	return maxScoreIndex, scores[maxScoreIndex], replayingSession.CallOutbounds[maxScoreIndex]
+}
+
+func (replayingSession *ReplayingSession) revealSessions() []outbound.RevealData {
+	globalRevealDataMutex.Lock()
+	defer globalRevealDataMutex.Unlock()
+
+	outboundsRevealData := globalRevealData[replayingSession.SessionId]
+	if outboundsRevealData != nil {
+		return outboundsRevealData
+	}
+
+	begin := time.Now()
+	for i, callOutbound := range replayingSession.CallOutbounds {
+		outboundsRevealData[i] = replayingSession.revealOneSession(callOutbound.Request)
+	}
+	elapsed := time.Since(begin)
+	countlog.Trace("event!replaying.reveal_session", "spendTime", elapsed)
+
+	return outboundsRevealData
+}
+
+func (replayingSession *ReplayingSession) revealOneSession(request []byte) (revealData outbound.RevealData) {
+	for _, protocol := range outbound.Revealers {
+		if !protocol.Inspect(request) {
+			continue
+		}
+		revealData, err := protocol.Parse(request)
+		if err != nil {
+			continue
+		}
+		return revealData
+	}
+
+	return outbound.RevealData{}
 }
 
 //func hashMatchTalk(ctx context.Context, requestHash *minhash.MinWise, outboundsHash *minhash.MinWise,
@@ -84,17 +131,21 @@ func (replayingSession *ReplayingSession) MinHashMatchOutboundTalk(
 func getReplayingSessionMinHash(replayingSession *ReplayingSession) []*minhash.MinWise {
 	globalMinHashMutex.Lock()
 	defer globalMinHashMutex.Unlock()
+
 	outboundsHash := globalMinHash[replayingSession.SessionId]
-	if outboundsHash == nil {
-		begin := time.Now()
-		outboundsHash = make([]*minhash.MinWise, len(replayingSession.CallOutbounds))
-		for i, callOutbound := range replayingSession.CallOutbounds {
-			outboundsHash[i] = NewMinHash(callOutbound.Request)
-		}
-		globalMinHash[replayingSession.SessionId] = outboundsHash
-		elapsed := time.Since(begin)
-		countlog.Trace("event!replaying.build_min_hash", "spendTime", elapsed)
+	if outboundsHash != nil {
+		return outboundsHash
 	}
+
+	begin := time.Now()
+	outboundsHash = make([]*minhash.MinWise, len(replayingSession.CallOutbounds))
+	for i, callOutbound := range replayingSession.CallOutbounds {
+		outboundsHash[i] = NewMinHash(callOutbound.Request)
+	}
+	globalMinHash[replayingSession.SessionId] = outboundsHash
+	elapsed := time.Since(begin)
+	countlog.Trace("event!replaying.build_min_hash", "spendTime", elapsed)
+
 	return outboundsHash
 }
 
