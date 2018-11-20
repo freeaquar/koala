@@ -7,6 +7,7 @@ import (
 	"math"
 	"sync"
 
+	"github.com/v2pro/koala/envarg"
 	"github.com/v2pro/koala/recording"
 	"github.com/v2pro/plz/countlog"
 )
@@ -20,24 +21,21 @@ var globalLastMatchedIndexMutex = &sync.Mutex{}
 
 func (replayingSession *ReplayingSession) MatchOutboundTalk(
 	ctx context.Context, connLastMatchedIndex int, request []byte) (int, float64, *recording.CallOutbound) {
-	//return replayingSession.MinHashMatchOutboundTalk(ctx, connLastMatchedIndex, request)
+	matchMethod := envarg.GetenvFromC("MATCH_METHOD")
+	if matchMethod == "min" {
+		countlog.Trace("event!replaying.match_outbound_talk.minhash")
+		return replayingSession.MinHashMatchOutboundTalk(ctx, connLastMatchedIndex, request)
+	}
+	countlog.Trace("event!replaying.match_outbound_talk.origin")
 
 	unit := 16
 	chunks := cutToChunks(request, unit)
-
-	outboundsRevealData := replayingSession.revealSessions()
-	requestRevealData := replayingSession.revealOneSession(request)
 	reqCandidates := replayingSession.loadKeys()
 	outboundsLen := len(replayingSession.CallOutbounds)
-
 	scores := make([]int, outboundsLen)
 	reqExpect100 := bytes.Contains(request, expect100)
-
 	for i, callOutbound := range replayingSession.CallOutbounds {
 		if reqExpect100 != bytes.Contains(callOutbound.Request, expect100) {
-			scores[i] = math.MinInt64
-		}
-		if !outboundsRevealData[i].Handler.PreMatch(requestRevealData, outboundsRevealData[i]) {
 			scores[i] = math.MinInt64
 		}
 	}

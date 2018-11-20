@@ -15,9 +15,6 @@ type RevealData struct {
 }
 
 var RevealHandler = []Revealer{
-	HTTPRevealer{},
-	//ThriftRevealer{},
-	UnknownRevealer{},
+	&HTTPRevealer{},
+	//&UnknownRevealer{},
 }
-
-type model map[interface{}]interface{}

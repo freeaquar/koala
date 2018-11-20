@@ -9,36 +9,30 @@ import (
 
 type HTTPRevealer struct {
 	Revealer
-	Methods map[string]bool
 }
 
-func NewHTTPRevealer() *HTTPRevealer {
-	return &HTTPRevealer{
-		Methods: map[string]bool{
-			http.MethodGet:     true,
-			http.MethodPost:    true,
-			http.MethodPut:     true,
-			http.MethodDelete:  true,
-			http.MethodHead:    true,
-			http.MethodOptions: true,
-			http.MethodTrace:   true,
-			http.MethodConnect: true,
-		},
-	}
+var httpMethod = map[string]bool{
+	http.MethodGet:     true,
+	http.MethodPost:    true,
+	http.MethodPut:     true,
+	http.MethodDelete:  true,
+	http.MethodHead:    true,
+	http.MethodOptions: true,
+	http.MethodTrace:   true,
+	http.MethodConnect: true,
 }
 
 /*
  * contain `HTTP`
  * start by HTTP method
  */
-func (this HTTPRevealer) Inspect(request []byte) (ok bool) {
-
+func (this *HTTPRevealer) Inspect(request []byte) (ok bool) {
 	if !bytes.Contains(request, []byte("HTTP/")) {
 		return false
 	}
 
 	index := bytes.Index(request, []byte(" "))
-	if _, ok := this.Methods[string(request[:index])]; ok {
+	if _, ok := httpMethod[string(request[:index])]; ok {
 		return true
 	}
 
@@ -48,7 +42,7 @@ func (this HTTPRevealer) Inspect(request []byte) (ok bool) {
 /*
  * store uri as must match segment
  */
-func (this HTTPRevealer) Parse(request []byte) (revealData RevealData, err error) {
+func (this *HTTPRevealer) Parse(request []byte) (revealData RevealData, err error) {
 	revealData.Handler = this
 	revealData.Must = this.revealUri(request)
 	if len(revealData.Must) <= 0 {
@@ -57,14 +51,14 @@ func (this HTTPRevealer) Parse(request []byte) (revealData RevealData, err error
 	return revealData, err
 }
 
-func (this HTTPRevealer) PreMatch(revealData1, revealData2 RevealData) (ok bool) {
+func (this *HTTPRevealer) PreMatch(revealData1, revealData2 RevealData) (ok bool) {
 	if 0 == bytes.Compare(revealData1.Must, revealData2.Must) {
 		return true
 	}
 	return false
 }
 
-func (this HTTPRevealer) revealUri(request []byte) (uri []byte) {
+func (this *HTTPRevealer) revealUri(request []byte) (uri []byte) {
 	data := bytes.Split(request, []byte("\r\n\r\n"))
 	headerLines := data[0]
 	data = bytes.SplitN(headerLines, []byte("\r\n"), 2)
@@ -74,7 +68,7 @@ func (this HTTPRevealer) revealUri(request []byte) (uri []byte) {
 	return uri
 }
 
-func (this HTTPRevealer) revealFirstLine(firstLine []byte) (
+func (this *HTTPRevealer) revealFirstLine(firstLine []byte) (
 	method, uri, version []byte, args map[string][]string) {
 
 	data := bytes.Fields(firstLine)
@@ -82,7 +76,7 @@ func (this HTTPRevealer) revealFirstLine(firstLine []byte) (
 		return
 	}
 	method, uri, version = data[0], data[1], data[2]
-	if _, ok := this.Methods[string(method)]; !ok {
+	if _, ok := httpMethod[string(method)]; !ok {
 		return
 	}
 

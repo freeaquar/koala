@@ -79,15 +79,16 @@ func (replayingSession *ReplayingSession) revealSessions() []protocol.RevealData
 	globalRevealDataMutex.Lock()
 	defer globalRevealDataMutex.Unlock()
 
-	outboundsRevealData := globalRevealData[replayingSession.SessionId]
-	if outboundsRevealData != nil {
+	if outboundsRevealData, ok := globalRevealData[replayingSession.SessionId]; ok {
 		return outboundsRevealData
 	}
 
 	begin := time.Now()
+	outboundsRevealData := make([]protocol.RevealData, len(replayingSession.CallOutbounds))
 	for i, callOutbound := range replayingSession.CallOutbounds {
 		outboundsRevealData[i] = replayingSession.revealOneSession(callOutbound.Request)
 	}
+	globalRevealData[replayingSession.SessionId] = outboundsRevealData
 	elapsed := time.Since(begin)
 	countlog.Trace("event!replaying.reveal_session", "spendTime", elapsed)
 
@@ -96,16 +97,20 @@ func (replayingSession *ReplayingSession) revealSessions() []protocol.RevealData
 
 func (replayingSession *ReplayingSession) revealOneSession(request []byte) (revealData protocol.RevealData) {
 	for _, p := range protocol.RevealHandler {
+		countlog.Error("event!replaying.reveal_one_session_1")
 		if !p.Inspect(request) {
+			countlog.Error("event!replaying.reveal_one_session Is NOT HTTP")
 			continue
 		}
+		countlog.Error("event!replaying.reveal_one_session_2", "request", request)
 		revealData, err := p.Parse(request)
 		if err != nil {
+			countlog.Error("event!replaying.reveal_one_session Is NOT PARSE HTTP")
 			continue
 		}
 		return revealData
 	}
-	revealData.Handler = protocol.UnknownRevealer{}
+	revealData.Handler = &protocol.UnknownRevealer{}
 	return revealData
 }
 
@@ -132,13 +137,12 @@ func getReplayingSessionMinHash(replayingSession *ReplayingSession) []*minhash.M
 	globalMinHashMutex.Lock()
 	defer globalMinHashMutex.Unlock()
 
-	outboundsHash := globalMinHash[replayingSession.SessionId]
-	if outboundsHash != nil {
+	if outboundsHash, ok := globalMinHash[replayingSession.SessionId]; ok {
 		return outboundsHash
 	}
 
 	begin := time.Now()
-	outboundsHash = make([]*minhash.MinWise, len(replayingSession.CallOutbounds))
+	outboundsHash := make([]*minhash.MinWise, len(replayingSession.CallOutbounds))
 	for i, callOutbound := range replayingSession.CallOutbounds {
 		outboundsHash[i] = NewMinHash(callOutbound.Request)
 	}
